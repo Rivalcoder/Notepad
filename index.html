@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Details</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="modal" id="usernameModal">
+        <div class="modal-content" id="modal-content">
+            <center>
+                <form id="usernameForm">
+                <h2>Enter Your Username</h2>
+                <input class="a" type="text" id="username" value="" placeholder="Username"><br>
+                <button class="b" type="submit">Submit</button>
+                </form>
+            </center>
+        </div>
+    </div>
+
+    <div id="notesSection">
+        <center>
+            <h1>Notes for <span id="currentUsername"></span></h1>
+            <textarea id="noteText" class="area" placeholder="Enter the Key Notes"></textarea>
+            <br>
+            <button type="button" id="addNoteButton">Add notes</button>
+            <button type="button" id="showNotesButton">Show Notes</button>
+        </center>
+    </div>
+
+    <ul id="notesList">
+        <!-- Notes will be populated here -->
+    </ul>
+
+    <div id="responseMessage"></div>
+
+    <script>
+        document.getElementById('usernameForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const myDiv = document.getElementById("usernameModal");
+            myDiv.style.display = "none";
+            const username = document.getElementById('username').value;
+            document.getElementById('currentUsername').textContent = username;
+
+            // Fetch and display notes for the given username
+            await updateNotesList(username);
+
+            // Show the notes section
+            document.getElementById('notesSection').style.display = 'block';
+        });
+
+        document.getElementById('addNoteButton').addEventListener('click', async function() {
+            const username = document.getElementById('currentUsername').textContent;
+            const note = document.getElementById('noteText').value;
+
+            // Send the note to the server
+            const response = await fetch(`/addNote`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, note }),
+            });
+
+            const result = await response.json();
+            document.getElementById('responseMessage').textContent = result.message;
+
+            // Clear textarea
+            document.getElementById('noteText').value = '';
+
+            // Refresh notes list
+            await updateNotesList(username);
+        });
+
+        async function updateNotesList(username) {
+            const response = await fetch(`/notes?username=${encodeURIComponent(username)}`);
+            const notes = await response.json();
+            const notesList = document.getElementById('notesList');
+            notesList.innerHTML = '';  // Clear existing notes
+
+            notes.forEach(note => {
+                const listItem = document.createElement('li');
+                listItem.textContent = note;
+                notesList.appendChild(listItem);
+            });
+        }
+        
+    </script>
+</body>
+</html>
