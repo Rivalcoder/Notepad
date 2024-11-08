@@ -1,74 +1,77 @@
 const express = require('express');
-const cors = require('cors');
 const { MongoClient } = require('mongodb');
-
+const bodyParser = require('body-parser');
+const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
-
 const password = "Prakash@24";
 const encodedPassword = encodeURIComponent(password);
 const uri = `mongodb+srv://rivalcoder:${encodedPassword}@rivalcoder.fdxlp.mongodb.net/?retryWrites=true&w=majority&appName=rivalcoder`;
-const client = new MongoClient(uri);
+const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-app.use(cors());
-app.use(express.json()); // Enable JSON parsing for POST requests
-app.use(express.static('public')); // Serve static files from the 'public' directory
 
+
+
+// Serve the HTML page
 app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/public/index.html'); // Serve the HTML file
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.get('/style', (req, res) => {
-    res.sendFile(__dirname + '/public/style.css'); // Serve the CSS file
+// Helper function to get MongoDB collection
+const getCollection = async (collectionName) => {
+    try {
+        await client.connect();
+        const database = client.db('mydb');  // Replace with your database name
+        return database.collection(collectionName);
+    } catch (error) {
+        console.error('Failed to connect to MongoDB:', error);
+        throw error;
+    }
+};
+
+// POST route to add a note
+app.post('/addNote', async (req, res) => {
+    try {
+        const { username, note } = req.body;
+        const collection = await getCollection('notes');  // Use a collection named 'notes'
+        
+        await collection.updateOne(
+            { username },
+            { $push: { notes: note } },
+            { upsert: true }
+        );
+
+        res.json({ message: 'Note added successfully!' });
+    } catch (error) {
+        console.error('Error adding note:', error);
+        res.status(500).json({ message: 'An error occurred while adding the note.' });
+    } finally {
+        await client.close();
+    }
 });
 
+// GET route to fetch notes for a user
 app.get('/notes', async (req, res) => {
     try {
-        await client.connect();
-        const username = req.query.username;
-        const database = client.db('mydb');
-        const collection = database.collection('notes');
-        const notes = await collection.find({ username }).toArray();
-        res.json(notes.map(note => note.notes)); // Respond with note content
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal Server Error' });
-    } finally {
-        await client.close();
-    }
-});
-
-app.get('/addNote', async (req, res) => {
-    try {
-        await client.connect();
-        const database = client.db('mydb');
-        const collection = database.collection('notes');
-        const newNote = { username: req.query.username, notes: req.query.note };
-        await collection.insertOne(newNote);
-        res.json({ message: 'Note added successfully!' });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal Server Error' });
-    } finally {
-        await client.close();
-    }
-});
-
-app.get('/deleteNote', async (req, res) => {
-    try {
-        await client.connect();
-        const database = client.db('mydb');
-        const collection = database.collection('notes');
-        await collection.deleteOne({ username: req.query.username, notes: req.query.note });
-        res.json({ message: 'Note deleted successfully!' });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal Server Error' });
+        const { username } = req.query;
+        const collection = await getCollection('notes');  // Use a collection named 'notes'
+        
+        const user = await collection.findOne({ username });
+        if (user) {
+            res.json(user.notes || []);
+        } else {
+            res.json([]);
+        }
+    } catch (error) {
+        console.error('Error fetching notes:', error);
+        res.status(500).json({ message: 'An error occurred while fetching the notes.' });
     } finally {
         await client.close();
     }
 });
 
 app.listen(port, () => {
-    console.log(`Server is running on port http://localhost:${port}`);
+    console.log(`Server is running at http://localhost:${port}`);
 });
