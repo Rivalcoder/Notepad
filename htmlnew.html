@@ -221,6 +221,17 @@
                 updateNotesList(savedUsername);
             }
         });
+            window.addEventListener('DOMContentLoaded', function() {
+                const savedTheme = localStorage.getItem('theme');
+                if (!savedTheme) {
+                    localStorage.setItem('theme', 'dark'); // Set default theme to dark
+                }
+                
+                if (localStorage.getItem('theme') === 'dark') {
+                    document.body.classList.add('dark-theme');
+                    document.querySelector('#themeToggle i').classList.replace('fa-moon', 'fa-sun');
+                }
+            });
 
         // Add note button click
         document.getElementById('addNoteButton').addEventListener('click', async function() {
