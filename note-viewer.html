@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Note Viewer - NotesKeeper</title>
+    <link rel="stylesheet" href="/newcss.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        #noteViewer {
+            min-height: calc(100vh - 200px);
+        }
+        
+        .note-viewer-content {
+            white-space: pre-wrap;
+            font-family: var(--font-mono);
+            line-height: 1.7;
+            font-size: 1rem;
+            padding: var(--spacing-xl);
+            overflow-x: auto;
+        }
+        
+        .note-actions-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-bottom: 1px solid var(--border-color);
+            background-color: rgba(0, 0, 0, 0.02);
+        }
+        
+        .dark-theme .note-actions-bar {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+        
+        .note-timestamp {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+        
+        .btn-with-icon {
+            display: flex;
+            align-items: center;
+            background-color: rgba(255, 255, 255, 0.02);
+            border: none;
+            color:whitesmoke;
+            gap: var(--spacing-sm);
+            cursor: pointer;
+        }
+        
+        .btn-with-icon:hover {
+            transform: translateY(-2px);
+            box-shadow: none;
+        }
+    
+        .btn-with-icon i {
+            margin-left: 0;
+        }
+
+        .loading-indicator {
+            text-align: center;
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <!-- App Header -->
+    <header id="app-header" class="visible">
+        <div class="container">
+            <div class="logo">
+                <i class="fas fa-sticky-note"></i>
+                <h1>NotesKeeper</h1>
+            </div>
+            <div class="user-info">
+                <button id="themeToggle" class="btn-icon" title="Toggle Theme">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <div class="container">
+            <section id="noteViewer" class="card visible">
+                <div class="note-actions-bar">
+                    <button class="btn-with-icon" onclick="window.location.href='/'">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>Back to Notes</span>
+                    </button>
+                    <span class="note-timestamp" id="noteTimestamp">Loading...</span>
+                    <button id="editNoteBtn" class="btn-with-icon">
+                        <i class="fas fa-edit"></i> Edit Note
+                    </button>
+                    <button id="copyNoteBtn" class="btn-with-icon">
+                        <i class="fas fa-copy"></i> Copy Note
+                    </button>
+                </div>
+                <div id="noteContent" class="note-viewer-content">
+                    <div class="loading-indicator">
+                        <i class="fas fa-spinner fa-spin"></i> Loading note...
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 NotesKeeper. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const username = urlParams.get('username');
+        const noteId = window.location.pathname.split('/').pop();
+
+        async function loadNote() {
+    console.log("Loading note...");
+    console.log("Extracted noteId:", noteId);
+    console.log("Extracted username:", username);
+
+    if (!username || !noteId) {
+        document.getElementById('noteContent').innerHTML = `<p>Note not found.</p>`;
+        return;
+    }
+
+    try {
+        const response = await fetch(`/note/${noteId}?username=${encodeURIComponent(username)}`, {
+            headers: { 'Accept': 'application/json' }
+        });
+
+        if (!response.ok) throw new Error(`Note fetch failed with status ${response.status}`);
+
+        const note = await response.json();
+        console.log("Fetched note data:", note);
+        document.getElementById('noteTimestamp').textContent = note.timestamp ? new Date(note.timestamp).toLocaleString() : "No Date";
+        document.getElementById('noteContent').innerHTML = `<pre>${note.content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
+    } catch (error) {
+        console.error("Error loading note:", error);
+        document.getElementById('noteContent').innerHTML = `<p>Error loading note.</p>`;
+    }
+}
+
+        document.getElementById('copyNoteBtn').addEventListener('click', () => {
+            navigator.clipboard.writeText(document.getElementById('noteContent').innerText);
+            alert('Note copied to clipboard!');
+        });
+
+        document.getElementById('editNoteBtn').addEventListener('click', async () => {
+            const newContent = prompt("Edit your note:", document.getElementById('noteContent').innerText);
+            if (!newContent) return;
+
+            const response = await fetch(`/editNote/${noteId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: newContent })
+            });
+
+            if ((await response.json()).success) loadNote();
+        });
+
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            document.body.classList.toggle('dark-theme');
+            const icon = this.querySelector('i');
+            icon.classList.toggle('fa-moon');
+            icon.classList.toggle('fa-sun');
+            localStorage.setItem('theme', document.body.classList.contains('dark-theme') ? 'dark' : 'light');
+        });
+
+        if (localStorage.getItem('theme') === 'dark') {
+            document.body.classList.add('dark-theme');
+            document.querySelector('#themeToggle i').classList.replace('fa-moon', 'fa-sun');
+        }
+
+        window.addEventListener('DOMContentLoaded', loadNote);
+    </script>
+</body>
+</html>
